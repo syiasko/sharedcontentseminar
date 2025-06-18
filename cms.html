@@ -1,24 +1,19 @@
 
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>CMS Dashboard</title>
-  <style>
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #ccc; padding: 4px; }
-  </style>
-</head>
+<head><meta charset="UTF-8"><title>CMS Dashboard</title></head>
 <body>
-<h2>Tracker Logs</h2>
-<input type="password" id="pw" placeholder="Enter password" />
-<button onclick="checkPassword()">Login</button>
-<div id="cms" style="display:none;">
-  <button onclick="exportToCSV()">Export & Clear</button>
-  <table>
+<h2>CMS Login</h2>
+<div id="login">
+  Password: <input type="password" id="pass"><button onclick="checkPass()">Login</button>
+</div>
+<div id="cms" style="display:none">
+  <h2>Tracker Logs</h2>
+  <button onclick="exportCSV()">Export & Clear</button>
+  <table border="1">
     <thead>
       <tr>
-        <th>Timestamp</th><th>WIB Time</th><th>Method</th><th>Lat</th><th>Lon</th>
+        <th>Timestamp</th><th>Method</th><th>Lat</th><th>Lon</th>
         <th>IP</th><th>City</th><th>Region</th><th>Country</th><th>Address</th>
         <th>UA</th><th>Lang</th><th>Screen</th><th>Platform</th>
       </tr>
@@ -27,43 +22,36 @@
   </table>
 </div>
 <script>
-  const pwHash = "d1bc0cb4e7fff35c6df11f9bfe588eecfef44b60a88a951310074c632608907d";
+const HASH = "d1bc0cb4e7fff35c6df11f9bfe588eecfef44b60a88a951310074c632608907d";
 
-  function sha256(str) {
-    const buf = new TextEncoder().encode(str);
-    return crypto.subtle.digest("SHA-256", buf).then(hash => {
-      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-    });
+function sha256(str) {
+  return crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)).then(buf => 
+    Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join(''));
+}
+
+async function checkPass() {
+  const input = document.getElementById("pass").value;
+  const hash = await sha256(input);
+  if (hash === HASH) {
+    document.getElementById("login").style.display = "none";
+    document.getElementById("cms").style.display = "block";
+    loadLogs();
+  } else {
+    alert("Incorrect password");
   }
+}
 
-  async function checkPassword() {
-    const input = document.getElementById("pw").value;
-    const hash = await sha256(input);
-    if (hash === pwHash) {
-      document.getElementById("cms").style.display = "block";
-      document.getElementById("pw").style.display = "none";
-      event.target.style.display = "none";
-      loadLogs();
-    } else {
-      alert("Wrong password");
-    }
-  }
-
-  function toWIB(isoStr) {
-    const date = new Date(isoStr);
-    date.setHours(date.getHours() + 7);
-    return date.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
-  }
-
-  function loadLogs() {
-    fetch("/logs").then(r => r.json()).then(arr => {
+let logs = [];
+function loadLogs() {
+  fetch("/logs")
+    .then(r => r.json())
+    .then(arr => {
+      logs = arr;
       const tbody = document.getElementById("logs");
-      tbody.innerHTML = "";
       arr.slice().reverse().forEach(e => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${e.timestamp}</td>
-          <td>${toWIB(e.timestamp)}</td>
           <td>${e.method}</td>
           <td>${e.latitude}</td>
           <td>${e.longitude}</td>
@@ -80,38 +68,18 @@
         tbody.appendChild(tr);
       });
     });
-  }
+}
 
-  function exportToCSV() {
-    fetch("/logs").then(r => r.json()).then(data => {
-      if (!data.length) return alert("No data to export.");
-
-      const csv = [
-        Object.keys(data[0]).join(","),
-        ...data.map(row => Object.values(row).map(v => `"${(v||"").toString().replace(/"/g, '""')}"`).join(","))
-      ].join("\n");
-
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "logs.csv";
-      a.click();
-
-      fetch("/log", {
-        method: "DELETE"
-      }).then(() => {
-        alert("Logs exported and cleared.");
-        document.getElementById("logs").innerHTML = "";
-      });
-    });
-  }
-
-  document.getElementById("pw").addEventListener("keyup", function(e) {
-    if (e.key === "Enter") {
-      checkPassword();
-    }
-  });
+function exportCSV() {
+  const header = Object.keys(logs[0] || {}).join(",") + "\n";
+  const body = logs.map(e => Object.values(e).map(v => `"${v}"`).join(",")).join("\n");
+  const blob = new Blob([header + body], {type: "text/csv"});
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "logs.csv";
+  link.click();
+  fetch("/clear", {method: "POST"}).then(() => location.reload());
+}
 </script>
 </body>
 </html>

