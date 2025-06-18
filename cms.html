@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CMS Dashboard</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 4px; }
+  </style>
+</head>
+<body>
+<h2>Tracker Logs</h2>
+<input type="password" id="pw" placeholder="Enter password" />
+<button onclick="checkPassword()">Login</button>
+<div id="cms" style="display:none;">
+  <button onclick="exportToCSV()">Export & Clear</button>
+  <table>
+    <thead>
+      <tr>
+        <th>Timestamp</th><th>WIB Time</th><th>Method</th><th>Lat</th><th>Lon</th>
+        <th>IP</th><th>City</th><th>Region</th><th>Country</th><th>Address</th>
+        <th>UA</th><th>Lang</th><th>Screen</th><th>Platform</th>
+      </tr>
+    </thead>
+    <tbody id="logs"></tbody>
+  </table>
+</div>
+<script>
+  const pwHash = "d1bc0cb4e7fff35c6df11f9bfe588eecfef44b60a88a951310074c632608907d";
+
+  function sha256(str) {
+    const buf = new TextEncoder().encode(str);
+    return crypto.subtle.digest("SHA-256", buf).then(hash => {
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+    });
+  }
+
+  async function checkPassword() {
+    const input = document.getElementById("pw").value;
+    const hash = await sha256(input);
+    if (hash === pwHash) {
+      document.getElementById("cms").style.display = "block";
+      document.getElementById("pw").style.display = "none";
+      event.target.style.display = "none";
+      loadLogs();
+    } else {
+      alert("Wrong password");
+    }
+  }
+
+  function toWIB(isoStr) {
+    const date = new Date(isoStr);
+    date.setHours(date.getHours() + 7);
+    return date.toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+  }
+
+  function loadLogs() {
+    fetch("/logs").then(r => r.json()).then(arr => {
+      const tbody = document.getElementById("logs");
+      tbody.innerHTML = "";
+      arr.slice().reverse().forEach(e => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${e.timestamp}</td>
+          <td>${toWIB(e.timestamp)}</td>
+          <td>${e.method}</td>
+          <td>${e.latitude}</td>
+          <td>${e.longitude}</td>
+          <td>${e.ip||''}</td>
+          <td>${e.city||''}</td>
+          <td>${e.region||''}</td>
+          <td>${e.country||''}</td>
+          <td>${e.address||''}</td>
+          <td>${e.userAgent}</td>
+          <td>${e.language}</td>
+          <td>${e.screen}</td>
+          <td>${e.platform}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    });
+  }
+
+  function exportToCSV() {
+    fetch("/logs").then(r => r.json()).then(data => {
+      if (!data.length) return alert("No data to export.");
+
+      const csv = [
+        Object.keys(data[0]).join(","),
+        ...data.map(row => Object.values(row).map(v => `"${(v||"").toString().replace(/"/g, '""')}"`).join(","))
+      ].join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "logs.csv";
+      a.click();
+
+      fetch("/log", {
+        method: "DELETE"
+      }).then(() => {
+        alert("Logs exported and cleared.");
+        document.getElementById("logs").innerHTML = "";
+      });
+    });
+  }
+
+  document.getElementById("pw").addEventListener("keyup", function(e) {
+    if (e.key === "Enter") {
+      checkPassword();
+    }
+  });
+</script>
+</body>
+</html>

